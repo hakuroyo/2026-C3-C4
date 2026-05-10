@@ -16,7 +16,6 @@
     }
   },
   "workspaceFolder": "/home/rosdev/ros2_ws",
-  "postCreateCommand": "bash -lc 'rosdep update && rosdep install -i --from-path src --rosdistro humble -y && colcon build'",
   "workspaceMount": "source=${localWorkspaceFolder},target=/home/rosdev/ros2_ws/src,type=bind",
   "mounts": [],
   "runArgs": [

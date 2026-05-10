@@ -13,9 +13,20 @@ RUN apt update -q \
     xauth \
     libopencv-dev \
     python3-opencv \
-    ros-humble-gazebo-ros \
     && apt clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# 添加 OSRF Gazebo 源
+RUN curl -sSL http://packages.osrfoundation.org/gazebo.gpg | apt-key add -
+
+RUN echo "deb http://packages.osrfoundation.org/gazebo/ubuntu-stable \
+$(lsb_release -cs) main" > /etc/apt/sources.list.d/gazebo-stable.list
+
+# 安装 Gazebo Classic + ROS 接口
+RUN apt-get update && apt-get install -y \
+    gazebo \
+    ros-humble-gazebo-ros-pkgs \
+    ros-humble-gazebo-plugins
 
 # Create and switch to user
 RUN groupadd -g $GID $USERNAME \
@@ -24,7 +35,12 @@ RUN groupadd -g $GID $USERNAME \
 USER $USERNAME
 
 # Create workspace so that user own this directory
-RUN mkdir -p /home/$USERNAME/ros2_ws/src
+RUN mkdir -p /home/$USERNAME/ros2_ws/src \
+    && rosdep update \
+    && cd /home/rosdev/ros2_ws \
+    && rosdep install -i --from-path src --rosdistro humble -y \
+    && colcon build \
+    && cd /
 WORKDIR /home/$USERNAME/ros2_ws
 
 # Copy configuration files
