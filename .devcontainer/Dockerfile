@@ -1,4 +1,4 @@
-FROM --platform=linux/amd64 ros:humble
+FROM --platform=linux/amd64 ros:humble-desktop
 
 ARG USERNAME=rosdev
 ARG UID=1000
