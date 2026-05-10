@@ -1,4 +1,4 @@
-FROM ros:humble-ros-base
+FROM ros:humble
 
 ARG USERNAME=rosdev
 ARG UID=1000
@@ -13,6 +13,7 @@ RUN apt update -q \
     xauth \
     libopencv-dev \
     python3-opencv \
+    ros-humble-gazebo-ros \
     && apt clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
