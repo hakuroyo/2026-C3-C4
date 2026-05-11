@@ -164,6 +164,33 @@ RUN printf '%s\n' \
     'set -e' \
     '' \
     'export DISPLAY="${DISPLAY:-:1}"' \
+    'for _ in $(seq 1 80); do' \
+    '    window_ids="$(xdotool search --pid "$1" 2>/dev/null || true)"' \
+    '    [ -n "$window_ids" ] && break' \
+    '    window_ids="$(xdotool search --class gzclient 2>/dev/null || true)"' \
+    '    [ -n "$window_ids" ] && break' \
+    '    window_ids="$(wmctrl -lx | awk '"'"'BEGIN{IGNORECASE=1} /(gzclient|gazebo)/ && $0 !~ /Qt Selection Owner/ {print $1}'"'"' || true)"' \
+    '    [ -n "$window_ids" ] && break' \
+    '    sleep 0.25' \
+    'done' \
+    '' \
+    'if [ -n "${window_ids:-}" ]; then' \
+    '    for window_id in $window_ids; do' \
+    '        title="$(xdotool getwindowname "$window_id" 2>/dev/null || true)"' \
+    '        case "$title" in *"Qt Selection Owner"*) continue ;; esac' \
+    '        wmctrl -i -r "$window_id" -b remove,hidden,maximized_vert,maximized_horz 2>/dev/null || true' \
+    '        wmctrl -i -r "$window_id" -e 0,40,40,1180,720 2>/dev/null || true' \
+    '        wmctrl -i -a "$window_id" 2>/dev/null || true' \
+    '    done' \
+    'fi' \
+    > /usr/local/bin/place-gzclient-window \
+    && chmod +x /usr/local/bin/place-gzclient-window
+
+RUN printf '%s\n' \
+    '#!/usr/bin/env bash' \
+    'set -e' \
+    '' \
+    'export DISPLAY="${DISPLAY:-:1}"' \
     'echo "Processes:"' \
     'ps -eo pid,ppid,comm,args | grep -E "gzserver|gzclient|gazebo|Xvfb|openbox|x11vnc|websockify" | grep -v grep || true' \
     'echo' \
@@ -192,6 +219,48 @@ RUN apt-get update && apt-get install -y \
     gazebo \
     ros-humble-gazebo-ros-pkgs \
     ros-humble-gazebo-plugins
+
+RUN dpkg-divert --rename --add /usr/bin/gazebo \
+    && printf '%s\n' \
+    '#!/usr/bin/env bash' \
+    'set -e' \
+    '' \
+    'if [ "${GAZEBO_USE_ORIGINAL:-0}" = "1" ]; then' \
+    '    exec /usr/bin/gazebo.distrib "$@"' \
+    'fi' \
+    '' \
+    'start-novnc true' \
+    'exec gazebo-novnc "$@"' \
+    > /usr/bin/gazebo \
+    && chmod +x /usr/bin/gazebo
+
+RUN dpkg-divert --rename --add /usr/bin/gzclient \
+    && printf '%s\n' \
+    '#!/usr/bin/env bash' \
+    'set -e' \
+    '' \
+    'if [ "${GZCLIENT_USE_ORIGINAL:-0}" = "1" ]; then' \
+    '    exec /usr/bin/gzclient.distrib "$@"' \
+    'fi' \
+    '' \
+    'export DISPLAY="${DISPLAY:-:1}"' \
+    'export LIBGL_ALWAYS_SOFTWARE="${LIBGL_ALWAYS_SOFTWARE:-1}"' \
+    'export LIBGL_DRI3_DISABLE="${LIBGL_DRI3_DISABLE:-1}"' \
+    'export QT_X11_NO_MITSHM="${QT_X11_NO_MITSHM:-1}"' \
+    'export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-xcb}"' \
+    'export QT_OPENGL="${QT_OPENGL:-software}"' \
+    'export QT_QUICK_BACKEND="${QT_QUICK_BACKEND:-software}"' \
+    'export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp/runtime-rosdev}"' \
+    'mkdir -p "$XDG_RUNTIME_DIR"' \
+    'chmod 700 "$XDG_RUNTIME_DIR"' \
+    '' \
+    'start-novnc true' \
+    'dbus-run-session -- /usr/bin/gzclient.distrib "$@" &' \
+    'gzclient_pid="$!"' \
+    'place-gzclient-window "$gzclient_pid" &' \
+    'wait "$gzclient_pid"' \
+    > /usr/bin/gzclient \
+    && chmod +x /usr/bin/gzclient
 
 # Create and switch to user
 RUN groupadd -g $GID $USERNAME \
