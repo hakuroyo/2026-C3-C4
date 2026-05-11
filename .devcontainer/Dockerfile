@@ -32,8 +32,11 @@ RUN apt update -q \
 
 ENV DISPLAY=:1
 ENV LIBGL_ALWAYS_SOFTWARE=1
+ENV LIBGL_DRI3_DISABLE=1
 ENV QT_X11_NO_MITSHM=1
 ENV QT_QPA_PLATFORM=xcb
+ENV QT_OPENGL=software
+ENV QT_QUICK_BACKEND=software
 ENV XDG_RUNTIME_DIR=/tmp/runtime-rosdev
 ENV GAZEBO_MASTER_URI=http://127.0.0.1:11345
 ENV GAZEBO_IP=127.0.0.1
@@ -47,7 +50,7 @@ RUN printf '%s\n' \
     'export DISPLAY="${DISPLAY:-:1}"' \
     '' \
     'if ! pgrep -f "Xvfb ${DISPLAY}" >/dev/null 2>&1; then' \
-    '    Xvfb "$DISPLAY" -screen 0 "${VNC_RESOLUTION:-1280x800x24}" -ac +extension GLX +render -noreset >/tmp/xvfb.log 2>&1 &' \
+    '    Xvfb "$DISPLAY" -screen 0 "${VNC_RESOLUTION:-1600x1000x24}" -dpi 96 -ac +extension GLX +render -noreset >/tmp/xvfb.log 2>&1 &' \
     'fi' \
     '' \
     'for _ in $(seq 1 50); do' \
@@ -86,8 +89,11 @@ RUN printf '%s\n' \
     '' \
     'export DISPLAY="${DISPLAY:-:1}"' \
     'export LIBGL_ALWAYS_SOFTWARE="${LIBGL_ALWAYS_SOFTWARE:-1}"' \
+    'export LIBGL_DRI3_DISABLE="${LIBGL_DRI3_DISABLE:-1}"' \
     'export QT_X11_NO_MITSHM="${QT_X11_NO_MITSHM:-1}"' \
     'export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-xcb}"' \
+    'export QT_OPENGL="${QT_OPENGL:-software}"' \
+    'export QT_QUICK_BACKEND="${QT_QUICK_BACKEND:-software}"' \
     'export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp/runtime-rosdev}"' \
     'export GAZEBO_MASTER_URI="${GAZEBO_MASTER_URI:-http://127.0.0.1:11345}"' \
     'export GAZEBO_IP="${GAZEBO_IP:-127.0.0.1}"' \
@@ -95,10 +101,10 @@ RUN printf '%s\n' \
     'mkdir -p "$XDG_RUNTIME_DIR"' \
     'chmod 700 "$XDG_RUNTIME_DIR"' \
     '' \
-    'gzserver --verbose "$@" &' \
+    'gzserver --verbose "$@" > /tmp/gzserver.log 2>&1 &' \
     'gzserver_pid="$!"' \
     'sleep 1' \
-    'gzclient --verbose &' \
+    'dbus-run-session -- gzclient --verbose > /tmp/gzclient.log 2>&1 &' \
     'gzclient_pid="$!"' \
     '' \
     'for _ in $(seq 1 80); do' \
@@ -163,6 +169,12 @@ RUN printf '%s\n' \
     'echo' \
     'echo "wmctrl windows:"' \
     'wmctrl -lx || true' \
+    'echo' \
+    'echo "gzclient log:"' \
+    'tail -n 120 /tmp/gzclient.log 2>/dev/null || true' \
+    'echo' \
+    'echo "gzserver log:"' \
+    'tail -n 80 /tmp/gzserver.log 2>/dev/null || true' \
     'echo' \
     'echo "xwininfo tree:"' \
     'xwininfo -root -tree | sed -n "1,120p"' \
