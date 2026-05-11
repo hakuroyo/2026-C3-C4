@@ -3,6 +3,8 @@
 
 对宿主机系统几乎无要求，只需要能正常运行 Docker，并能拉取所需镜像。
 
+Docker 容器环境：Ubuntu 22.04 ，ROS2 Humble ，Gazebo Classic 。
+
 ### VS Code
 
 1. 安装 Docker 和 VS Code 的 Dev Containers 插件。

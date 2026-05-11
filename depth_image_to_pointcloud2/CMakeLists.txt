@@ -9,6 +9,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(OpenCV REQUIRED COMPONENTS core imgproc)
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
@@ -29,6 +30,10 @@ add_executable(depth_image_to_pointcloud2
         src/main.cpp
         src/depth_image_to_pointcloud2_node.cpp)
 ament_target_dependencies(depth_image_to_pointcloud2 rclcpp std_msgs)
+target_include_directories(depth_image_to_pointcloud2 PRIVATE
+        include
+        ${OpenCV_INCLUDE_DIRS})
+target_link_libraries(depth_image_to_pointcloud2 ${OpenCV_LIBRARIES})
 
 install(TARGETS
         depth_image_to_pointcloud2
