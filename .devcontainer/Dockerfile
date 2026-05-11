@@ -95,26 +95,37 @@ RUN printf '%s\n' \
     'mkdir -p "$XDG_RUNTIME_DIR"' \
     'chmod 700 "$XDG_RUNTIME_DIR"' \
     '' \
-    'gazebo --verbose "$@" &' \
-    'gazebo_pid="$!"' \
+    'gzserver --verbose "$@" &' \
+    'gzserver_pid="$!"' \
+    'sleep 1' \
+    'gzclient --verbose &' \
+    'gzclient_pid="$!"' \
     '' \
     'for _ in $(seq 1 80); do' \
-    '    window_ids="$(wmctrl -lx | awk '"'"'BEGIN{IGNORECASE=1} /gazebo/ && $0 !~ /Qt Selection Owner/ {print $1}'"'"' || true)"' \
+    '    window_ids="$(xdotool search --pid "$gzclient_pid" 2>/dev/null || true)"' \
     '    [ -n "$window_ids" ] && break' \
-    '    window_ids="$(xdotool search --onlyvisible --name "^Gazebo" 2>/dev/null || true)"' \
+    '    window_ids="$(xdotool search --class gzclient 2>/dev/null || true)"' \
+    '    [ -n "$window_ids" ] && break' \
+    '    window_ids="$(wmctrl -lx | awk '"'"'BEGIN{IGNORECASE=1} /(gzclient|gazebo)/ && $0 !~ /Qt Selection Owner/ {print $1}'"'"' || true)"' \
     '    [ -n "$window_ids" ] && break' \
     '    sleep 0.25' \
     'done' \
     '' \
     'if [ -n "${window_ids:-}" ]; then' \
     '    for window_id in $window_ids; do' \
+    '        title="$(xdotool getwindowname "$window_id" 2>/dev/null || true)"' \
+    '        case "$title" in *"Qt Selection Owner"*) continue ;; esac' \
     '        wmctrl -i -r "$window_id" -b remove,hidden,maximized_vert,maximized_horz 2>/dev/null || true' \
     '        wmctrl -i -r "$window_id" -e 0,40,40,1180,720 2>/dev/null || true' \
     '        wmctrl -i -a "$window_id" 2>/dev/null || true' \
     '    done' \
+    'else' \
+    '    echo "No gzclient window found on $DISPLAY" >&2' \
+    '    echo "Run list-x-windows for the current X window tree." >&2' \
     'fi' \
     '' \
-    'wait "$gazebo_pid"' \
+    'wait "$gzclient_pid"' \
+    'kill "$gzserver_pid" >/dev/null 2>&1 || true' \
     > /usr/local/bin/gazebo-novnc \
     && chmod +x /usr/local/bin/gazebo-novnc
 
@@ -123,21 +134,40 @@ RUN printf '%s\n' \
     'set -e' \
     '' \
     'export DISPLAY="${DISPLAY:-:1}"' \
-    'window_ids="$(wmctrl -lx | awk '"'"'BEGIN{IGNORECASE=1} /gazebo/ && $0 !~ /Qt Selection Owner/ {print $1}'"'"' || true)"' \
+    'window_ids="$(xdotool search --class gzclient 2>/dev/null || true)"' \
     'if [ -z "$window_ids" ]; then' \
-    '    window_ids="$(xdotool search --onlyvisible --name "^Gazebo" 2>/dev/null || true)"' \
+    '    window_ids="$(wmctrl -lx | awk '"'"'BEGIN{IGNORECASE=1} /(gzclient|gazebo)/ && $0 !~ /Qt Selection Owner/ {print $1}'"'"' || true)"' \
     'fi' \
     'if [ -z "$window_ids" ]; then' \
-    '    echo "No Gazebo windows found on $DISPLAY" >&2' \
+    '    echo "No gzclient/Gazebo windows found on $DISPLAY" >&2' \
+    '    echo "Run list-x-windows to inspect the current X window tree." >&2' \
     '    exit 1' \
     'fi' \
     'for window_id in $window_ids; do' \
+    '    title="$(xdotool getwindowname "$window_id" 2>/dev/null || true)"' \
+    '    case "$title" in *"Qt Selection Owner"*) continue ;; esac' \
     '    wmctrl -i -r "$window_id" -b remove,hidden,maximized_vert,maximized_horz || true' \
     '    wmctrl -i -r "$window_id" -e 0,40,40,1180,720 || true' \
     '    wmctrl -i -a "$window_id" || true' \
     'done' \
     > /usr/local/bin/show-gazebo-windows \
     && chmod +x /usr/local/bin/show-gazebo-windows
+
+RUN printf '%s\n' \
+    '#!/usr/bin/env bash' \
+    'set -e' \
+    '' \
+    'export DISPLAY="${DISPLAY:-:1}"' \
+    'echo "Processes:"' \
+    'ps -eo pid,ppid,comm,args | grep -E "gzserver|gzclient|gazebo|Xvfb|openbox|x11vnc|websockify" | grep -v grep || true' \
+    'echo' \
+    'echo "wmctrl windows:"' \
+    'wmctrl -lx || true' \
+    'echo' \
+    'echo "xwininfo tree:"' \
+    'xwininfo -root -tree | sed -n "1,120p"' \
+    > /usr/local/bin/list-x-windows \
+    && chmod +x /usr/local/bin/list-x-windows
 
 # 添加 OSRF Gazebo 源
 RUN curl -sSL http://packages.osrfoundation.org/gazebo.gpg | apt-key add -
