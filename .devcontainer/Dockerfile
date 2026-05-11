@@ -273,7 +273,7 @@ RUN mkdir -p /home/$USERNAME/ros2_ws/src \
     && rosdep update \
     && cd /home/rosdev/ros2_ws \
     && rosdep install -i --from-path src --rosdistro humble -y \
-    && colcon build \
+    && colcon build --cmake-args -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
     && cd /
 WORKDIR /home/$USERNAME/ros2_ws
 
